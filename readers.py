@@ -20,10 +20,8 @@ import utils
 from tensorflow import logging
 def resize_axis(tensor, axis, new_size, fill_value=0):
   """Truncates or pads a tensor to new_size on on a given axis.
-
   Truncate or extend tensor such that tensor.shape[axis] == new_size. If the
   size increases, the padding will be performed at the end, using fill_value.
-
   Args:
     tensor: The tensor to be resized.
     axis: An integer representing the dimension to be sliced.
@@ -31,7 +29,6 @@ def resize_axis(tensor, axis, new_size, fill_value=0):
       tensor.shape[axis].
     fill_value: Value to use to fill any new entries in the tensor. Will be
       cast to the type of tensor.
-
   Returns:
     The resized tensor.
   """
@@ -65,18 +62,16 @@ class BaseReader(object):
 
 class YT8MAggregatedFeatureReader(BaseReader):
   """Reads TFRecords of pre-aggregated Examples.
-
   The TFRecords must contain Examples with a sparse int64 'labels' feature and
   a fixed length float32 feature, obtained from the features in 'feature_name'.
   The float features are assumed to be an average of dequantized values.
   """
 
   def __init__(self,
-               num_classes=3862,
+               num_classes=2,
                feature_sizes=[1024, 128],
                feature_names=["mean_rgb", "mean_audio"]):
     """Construct a YT8MAggregatedFeatureReader.
-
     Args:
       num_classes: a positive integer for the number of classes.
       feature_sizes: positive integer(s) for the feature dimensions as a list.
@@ -93,10 +88,8 @@ class YT8MAggregatedFeatureReader(BaseReader):
 
   def prepare_reader(self, filename_queue, batch_size=1024):
     """Creates a single reader thread for pre-aggregated YouTube 8M Examples.
-
     Args:
       filename_queue: A tensorflow queue of filename locations.
-
     Returns:
       A tuple of video indexes, features, labels, and padding data.
     """
@@ -114,7 +107,7 @@ class YT8MAggregatedFeatureReader(BaseReader):
     "length of feature_names (={}) != length of feature_sizes (={})".format( \
     len(self.feature_names), len(self.feature_sizes))
 
-    feature_map = {"id": tf.FixedLenFeature([], tf.string),
+    feature_map = {"video_id": tf.FixedLenFeature([], tf.string),
                    "labels": tf.VarLenFeature(tf.int64)}
     for feature_index in range(num_features):
       feature_map[self.feature_names[feature_index]] = tf.FixedLenFeature(
@@ -126,11 +119,10 @@ class YT8MAggregatedFeatureReader(BaseReader):
     concatenated_features = tf.concat([
         features[feature_name] for feature_name in self.feature_names], 1)
 
-    return features["id"], concatenated_features, labels, tf.ones([tf.shape(serialized_examples)[0]])
+    return features["video_id"], concatenated_features, labels, tf.ones([tf.shape(serialized_examples)[0]])
 
 class YT8MFrameFeatureReader(BaseReader):
   """Reads TFRecords of SequenceExamples.
-
   The TFRecords must contain SequenceExamples with the sparse in64 'labels'
   context feature and a fixed length byte-quantized feature vector, obtained
   from the features in 'feature_names'. The quantized features will be mapped
@@ -138,12 +130,11 @@ class YT8MFrameFeatureReader(BaseReader):
   """
 
   def __init__(self,
-               num_classes=3862,
+               num_classes=2,
                feature_sizes=[1024, 128],
                feature_names=["rgb", "audio"],
                max_frames=300):
     """Construct a YT8MFrameFeatureReader.
-
     Args:
       num_classes: a positive integer for the number of classes.
       feature_sizes: positive integer(s) for the feature dimensions as a list.
@@ -167,14 +158,12 @@ class YT8MFrameFeatureReader(BaseReader):
                        max_quantized_value,
                        min_quantized_value):
     """Decodes features from an input string and quantizes it.
-
     Args:
       features: raw feature values
       feature_size: length of each frame feature vector
       max_frames: number of frames (rows) in the output feature_matrix
       max_quantized_value: the maximum of the quantized value.
       min_quantized_value: the minimum of the quantized value.
-
     Returns:
       feature_matrix: matrix of all frame-features
       num_frames: number of frames in the sequence
@@ -195,12 +184,10 @@ class YT8MFrameFeatureReader(BaseReader):
                      max_quantized_value=2,
                      min_quantized_value=-2):
     """Creates a single reader thread for YouTube8M SequenceExamples.
-
     Args:
       filename_queue: A tensorflow queue of filename locations.
       max_quantized_value: the maximum of the quantized value.
       min_quantized_value: the minimum of the quantized value.
-
     Returns:
       A tuple of video indexes, video features, labels, and padding data.
     """
@@ -215,7 +202,7 @@ class YT8MFrameFeatureReader(BaseReader):
 
     contexts, features = tf.parse_single_sequence_example(
         serialized_example,
-        context_features={"id": tf.FixedLenFeature(
+        context_features={"video_id": tf.FixedLenFeature(
             [], tf.string),
                           "labels": tf.VarLenFeature(tf.int64)},
         sequence_features={
@@ -261,10 +248,9 @@ class YT8MFrameFeatureReader(BaseReader):
 
     # convert to batch format.
     # TODO: Do proper batch reads to remove the IO bottleneck.
-    batch_video_ids = tf.expand_dims(contexts["id"], 0)
+    batch_video_ids = tf.expand_dims(contexts["video_id"], 0)
     batch_video_matrix = tf.expand_dims(video_matrix, 0)
     batch_labels = tf.expand_dims(labels, 0)
     batch_frames = tf.expand_dims(num_frames, 0)
 
     return batch_video_ids, batch_video_matrix, batch_labels, batch_frames
-
