@@ -271,9 +271,10 @@ def build_graph(reader,
     tf.add_to_collection("labels", tf.cast(labels_batch, tf.float32))
     tf.add_to_collection("train_op", train_op)
 
-
 class TransferTrainer(Trainer):
     """A Trainer to train a Tensorflow graph."""
+    def recover_model(meta_filename):
+        return tf.train.import_meta_graph(meta_filename, clear_devices=True)    
 
     def run(self, start_new_model=False):
         """Performs training on the currently defined Tensorflow graph.
